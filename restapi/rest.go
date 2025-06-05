@@ -40,6 +40,27 @@ func (ts *usersServer) CreateNewUser(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(createdUser)
 }
 
+func (ts *usersServer) VerifyUserPassword(w http.ResponseWriter, r *http.Request) {
+	type login struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	l := login{}
+	dec := json.NewDecoder(r.Body)
+	dec.Decode(&l)
+
+	u, found := ts.store.FindByUsername(l.Username)
+	if !found {
+		w.WriteHeader(http.StatusNotFound)
+		return
+	}
+	err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(l.Password))
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+}
+
 func (ts *usersServer) GetUserById(w http.ResponseWriter, r *http.Request) {
 	v, err := strconv.Atoi(r.PathValue("id"))
 	if err != nil {
@@ -67,5 +88,6 @@ func main() {
 	mux.HandleFunc("POST /", ts.CreateNewUser)
 	mux.HandleFunc("GET /{id}", ts.GetUserById)
 	mux.HandleFunc("GET /", ts.GetAllUsers)
+	mux.HandleFunc("POST /auth", ts.VerifyUserPassword)
 	log.Fatal(http.ListenAndServe(":8080", mux))
 }

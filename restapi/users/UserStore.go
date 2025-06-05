@@ -20,6 +20,7 @@ type UserStore interface {
 	Add(user User) User
 	Get(id int) (User, error)
 	GetAll() []User
+	FindByUsername(username string) (*User, bool)
 }
 
 type UserStoreInMem struct {
@@ -32,6 +33,15 @@ func NewUserStoreInMem() *UserStoreInMem {
 		store:  make(map[int]User),
 		nextId: 0,
 	}
+}
+
+func (u *UserStoreInMem) FindByUsername(username string) (*User, bool) {
+	for _, user := range u.store {
+		if user.Username == username {
+			return &user, true
+		}
+	}
+	return nil, false
 }
 
 func (u *UserStoreInMem) Add(user User) User {
