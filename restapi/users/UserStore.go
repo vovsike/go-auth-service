@@ -3,6 +3,7 @@ package users
 import "fmt"
 
 type User struct {
+	Id       int    `json:"id"`
 	Username string `json:"username"`
 	Password string `json:"password"`
 }
@@ -16,7 +17,7 @@ func NewUser(username string, password string) User {
 }
 
 type UserStore interface {
-	Add(user User)
+	Add(user User) User
 	Get(id int) (User, error)
 	GetAll() []User
 }
@@ -33,10 +34,12 @@ func NewUserStoreInMem() *UserStoreInMem {
 	}
 }
 
-func (u *UserStoreInMem) Add(user User) {
+func (u *UserStoreInMem) Add(user User) User {
 	id := u.nextId
+	user.Id = id
 	u.store[id] = user
 	u.nextId++
+	return user
 }
 
 func (u *UserStoreInMem) Get(id int) (User, error) {

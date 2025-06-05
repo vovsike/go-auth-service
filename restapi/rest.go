@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"golang.org/x/crypto/bcrypt"
 	"log"
 	"net/http"
 	"restapi/users"
@@ -18,12 +19,25 @@ func newUserServer() *usersServer {
 }
 
 func (ts *usersServer) CreateNewUser(w http.ResponseWriter, r *http.Request) {
-	u := users.User{}
+
+	type createUser struct {
+		Username string `json:"username"`
+		Password string `json:"password"`
+	}
+	u := createUser{}
 	dec := json.NewDecoder(r.Body)
 	dec.Decode(&u)
-	ts.store.Add(u)
+	bhash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+	createdUser := ts.store.Add(users.User{
+		Username: u.Username,
+		Password: string(bhash),
+	})
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(u)
+	json.NewEncoder(w).Encode(createdUser)
 }
 
 func (ts *usersServer) GetUserById(w http.ResponseWriter, r *http.Request) {
