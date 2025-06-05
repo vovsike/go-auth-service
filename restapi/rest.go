@@ -89,5 +89,7 @@ func main() {
 	mux.HandleFunc("GET /{id}", ts.GetUserById)
 	mux.HandleFunc("GET /", ts.GetAllUsers)
 	mux.HandleFunc("POST /auth", ts.VerifyUserPassword)
-	log.Fatal(http.ListenAndServe(":8080", mux))
+
+	handler := Logging(mux)
+	log.Fatal(http.ListenAndServe(":8080", handler))
 }
