@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 )
 
 func Logging(next http.Handler) http.Handler {
@@ -21,7 +22,8 @@ func Logging(next http.Handler) http.Handler {
 
 func Auth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		jwtValue := r.Header.Get("Authorization")
+		token := r.Header.Get("Authorization")
+		jwtValue := strings.Split(token, "Bearer")[1]
 		priv, _ := loadRSAPrivateKeyFromFile("private.pem")
 		_, err := jwt.Parse([]byte(jwtValue), jwt.WithKey(jwa.RS256(), priv.Public()))
 		if err != nil {

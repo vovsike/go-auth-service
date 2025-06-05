@@ -86,10 +86,10 @@ func main() {
 	mux := http.NewServeMux()
 	ts := newUserServer()
 	mux.HandleFunc("POST /", ts.CreateNewUser)
-	mux.HandleFunc("GET /{id}", ts.GetUserById)
+	mux.Handle("GET /{id}", Auth(http.HandlerFunc(ts.GetUserById)))
 	mux.HandleFunc("GET /", ts.GetAllUsers)
 	mux.HandleFunc("POST /auth", ts.VerifyUserPassword)
 
-	handler := Auth(mux)
+	handler := Logging(mux)
 	log.Fatal(http.ListenAndServe(":8080", handler))
 }
