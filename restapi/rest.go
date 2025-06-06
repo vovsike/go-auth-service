@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"golang.org/x/crypto/bcrypt"
 	"log"
 	"net/http"
 	"restapi/users"
@@ -14,51 +13,8 @@ type usersServer struct {
 }
 
 func newUserServer() *usersServer {
-	per := users.NewUserStoreInMem()
+	per := users.NewUserStoreDB()
 	return &usersServer{store: per}
-}
-
-func (ts *usersServer) CreateNewUser(w http.ResponseWriter, r *http.Request) {
-
-	type createUser struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-	}
-	u := createUser{}
-	dec := json.NewDecoder(r.Body)
-	dec.Decode(&u)
-	bhash, err := bcrypt.GenerateFromPassword([]byte(u.Password), bcrypt.DefaultCost)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
-	createdUser := ts.store.Add(users.User{
-		Username: u.Username,
-		Password: string(bhash),
-	})
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(createdUser)
-}
-
-func (ts *usersServer) VerifyUserPassword(w http.ResponseWriter, r *http.Request) {
-	type login struct {
-		Username string `json:"username"`
-		Password string `json:"password"`
-	}
-	l := login{}
-	dec := json.NewDecoder(r.Body)
-	dec.Decode(&l)
-
-	u, found := ts.store.FindByUsername(l.Username)
-	if !found {
-		w.WriteHeader(http.StatusNotFound)
-		return
-	}
-	err := bcrypt.CompareHashAndPassword([]byte(u.Password), []byte(l.Password))
-	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
-	}
 }
 
 func (ts *usersServer) GetUserById(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +23,7 @@ func (ts *usersServer) GetUserById(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	u, err := ts.store.Get(v)
+	u, err := ts.store.GetById(v)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -82,13 +38,19 @@ func (ts *usersServer) GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(usersList)
 }
 
+func (ts *usersServer) Ping(w http.ResponseWriter, r *http.Request) {
+	ts.store.Ping()
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode("pong")
+}
+
 func main() {
 	mux := http.NewServeMux()
 	ts := newUserServer()
-	mux.HandleFunc("POST /", ts.CreateNewUser)
+	defer ts.store.(*users.UserStoreDB).Close()
 	mux.Handle("GET /{id}", Auth(http.HandlerFunc(ts.GetUserById)))
 	mux.HandleFunc("GET /", ts.GetAllUsers)
-	mux.HandleFunc("POST /auth", ts.VerifyUserPassword)
+	mux.HandleFunc("GET /ping", ts.Ping)
 
 	handler := Logging(mux)
 	log.Fatal(http.ListenAndServe(":8080", handler))
