@@ -3,14 +3,13 @@ package sessions
 import (
 	"context"
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"time"
 )
 
 type SessionStore interface {
-	CreateNewSession(userId int)
-	VerifySession(sessionId string)
+	CreateNewSession(userId int, sessionId string)
+	GetSession(sessionId string)
 	DeleteSession(sessionId string)
 }
 
@@ -24,15 +23,14 @@ func NewSessionStoreDB(conn *pgx.Conn) *SessionStoreDB {
 	}
 }
 
-func (s *SessionStoreDB) CreateNewSession(userId int) {
-	sid, _ := uuid.NewRandom()
-	_, err := s.db.Exec(context.Background(), "INSERT INTO sessions (session_id, user_id, expires) VALUES ($1, $2, $3)", sid, userId, time.Now())
+func (s *SessionStoreDB) CreateNewSession(userId int, sessionId string) {
+	_, err := s.db.Exec(context.Background(), "INSERT INTO sessions (session_id, user_id, expires) VALUES ($1, $2, $3)", sessionId, userId, time.Now())
 	if err != nil {
 		fmt.Println(err)
 	}
 }
 
-func (s *SessionStoreDB) VerifySession(sessionId string) {
+func (s *SessionStoreDB) GetSession(sessionId string) {
 	//TODO implement me
 	panic("implement me")
 }
