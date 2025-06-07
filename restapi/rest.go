@@ -2,19 +2,26 @@ package main
 
 import (
 	"encoding/json"
+	"github.com/jackc/pgx/v5"
 	"log"
 	"net/http"
+	"restapi/db"
+	"restapi/sessions"
 	"restapi/users"
 	"strconv"
 )
 
 type usersServer struct {
-	store users.UserStore
+	userStore      users.UserStore
+	sessionService *sessions.SessionService
 }
 
-func newUserServer() *usersServer {
-	per := users.NewUserStoreDB()
-	return &usersServer{store: per}
+func newUserServer(conn *pgx.Conn) *usersServer {
+	per := users.NewUserStoreDB(conn)
+	ss := sessions.NewSessionService(sessions.NewSessionStoreDB(conn))
+	return &usersServer{
+		userStore:      per,
+		sessionService: ss}
 }
 
 func (ts *usersServer) GetUserById(w http.ResponseWriter, r *http.Request) {
@@ -23,7 +30,7 @@ func (ts *usersServer) GetUserById(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	u, err := ts.store.GetById(v)
+	u, err := ts.userStore.GetById(v)
 	if err != nil {
 		w.WriteHeader(http.StatusNotFound)
 		return
@@ -33,24 +40,31 @@ func (ts *usersServer) GetUserById(w http.ResponseWriter, r *http.Request) {
 }
 
 func (ts *usersServer) GetAllUsers(w http.ResponseWriter, r *http.Request) {
-	usersList := ts.store.GetAll()
+	usersList := ts.userStore.GetAll()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(usersList)
 }
 
 func (ts *usersServer) Ping(w http.ResponseWriter, r *http.Request) {
-	ts.store.Ping()
+	ts.userStore.Ping()
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("pong")
 }
 
+func (ts *usersServer) CreateNewSession(w http.ResponseWriter, r *http.Request) {
+	ts.sessionService.CreateNewSession(1)
+}
+
 func main() {
+	dbConnection := db.CreateNewConnection()
 	mux := http.NewServeMux()
-	ts := newUserServer()
-	defer ts.store.(*users.UserStoreDB).Close()
-	mux.Handle("GET /{id}", Auth(http.HandlerFunc(ts.GetUserById)))
-	mux.HandleFunc("GET /", ts.GetAllUsers)
-	mux.HandleFunc("GET /ping", ts.Ping)
+	us := newUserServer(dbConnection)
+	defer us.userStore.(*users.UserStoreDB).Close()
+
+	mux.Handle("GET /{id}", Auth(http.HandlerFunc(us.GetUserById)))
+	mux.HandleFunc("GET /", us.GetAllUsers)
+	mux.HandleFunc("GET /ping", us.Ping)
+	mux.HandleFunc("POST /session", us.CreateNewSession)
 
 	handler := Logging(mux)
 	log.Fatal(http.ListenAndServe(":8080", handler))

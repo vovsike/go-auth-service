@@ -11,12 +11,7 @@ type UserStoreDB struct {
 	db *pgx.Conn
 }
 
-func NewUserStoreDB() *UserStoreDB {
-	conn, err := pgx.Connect(context.Background(), "postgres://postgres:password@localhost:5432/postgres")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+func NewUserStoreDB(conn *pgx.Conn) *UserStoreDB {
 	return &UserStoreDB{db: conn}
 }
 
