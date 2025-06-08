@@ -2,17 +2,20 @@ package sessions
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"restapi/jwtInternal"
 	"restapi/users"
 )
 
 type Controller struct {
 	Service      *SessionService
 	UsersService *users.UserService
+	JwtService   jwtInternal.Service
 }
 
-func NewController(service *SessionService, usersService *users.UserService) *Controller {
-	return &Controller{Service: service, UsersService: usersService}
+func NewController(service *SessionService, usersService *users.UserService, jwtService jwtInternal.Service) *Controller {
+	return &Controller{Service: service, UsersService: usersService, JwtService: jwtService}
 }
 
 func (c *Controller) Login(w http.ResponseWriter, r *http.Request) {
@@ -37,5 +40,44 @@ func (c *Controller) Login(w http.ResponseWriter, r *http.Request) {
 	un, _ := c.UsersService.Store.FindByUsername(up.Username)
 	s := c.Service.Authenticate(un.Id)
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(s)
+	err = json.NewEncoder(w).Encode(s)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		fmt.Println(err)
+		return
+	}
+}
+
+func (c *Controller) GetToken(w http.ResponseWriter, r *http.Request) {
+	type sWrap struct {
+		SessionId string `json:"sessionId"`
+	}
+
+	var s sWrap
+
+	err := json.NewDecoder(r.Body).Decode(&s)
+	if err != nil {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	sesh, ok := c.Service.VerifySession(s.SessionId)
+	if !ok {
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+
+	jwtToken, err := c.JwtService.GenerateToken(sesh.UserId)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+
+	type jwtWrapper struct {
+		Token []byte `json:"token"`
+	}
+	jwtWrapped := jwtWrapper{Token: jwtToken}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(jwtWrapped)
+
 }

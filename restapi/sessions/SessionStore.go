@@ -8,14 +8,14 @@ import (
 )
 
 type Session struct {
-	sessionId string
-	userId    int
-	expires   time.Time
+	SessionId string
+	UserId    int
+	Expires   time.Time
 }
 
 type SessionStore interface {
 	CreateNewSession(session Session) Session
-	GetSession(sessionId string) Session
+	GetSession(sessionId string) (Session, error)
 	DeleteSession(sessionId string)
 }
 
@@ -30,7 +30,7 @@ func NewSessionStoreDB(conn *pgx.Conn) *SessionStoreDB {
 }
 
 func (ss *SessionStoreDB) CreateNewSession(s Session) Session {
-	_, err := ss.db.Exec(context.Background(), "INSERT INTO sessions (session_id, user_id, expires) VALUES ($1, $2, $3)", s.sessionId, s.userId, s.expires)
+	_, err := ss.db.Exec(context.Background(), "INSERT INTO sessions (session_id, user_id, expires) VALUES ($1, $2, $3)", s.SessionId, s.UserId, s.Expires)
 	if err != nil {
 		fmt.Println(err)
 		return Session{}
@@ -38,9 +38,14 @@ func (ss *SessionStoreDB) CreateNewSession(s Session) Session {
 	return s
 }
 
-func (ss *SessionStoreDB) GetSession(sessionId string) Session {
-	//TODO implement me
-	panic("implement me")
+func (ss *SessionStoreDB) GetSession(sessionId string) (Session, error) {
+	s := Session{}
+
+	err := ss.db.QueryRow(context.Background(), "SELECT * FROM sessions WHERE session_id = $1", sessionId).Scan(&s.SessionId, &s.UserId, &s.Expires)
+	if err != nil {
+		return Session{}, err
+	}
+	return s, nil
 }
 
 func (ss *SessionStoreDB) DeleteSession(sessionId string) {

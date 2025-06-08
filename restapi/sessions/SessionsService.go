@@ -18,9 +18,17 @@ func NewSessionService(store SessionStore) *SessionService {
 func (s *SessionService) Authenticate(userId int) Session {
 	sid, _ := uuid.NewRandom()
 	session := Session{
-		sessionId: sid.String(),
-		userId:    userId,
-		expires:   time.Now().Add(time.Hour * 24),
+		SessionId: sid.String(),
+		UserId:    userId,
+		Expires:   time.Now().Add(time.Hour * 24),
 	}
 	return s.Store.CreateNewSession(session)
+}
+
+func (s *SessionService) VerifySession(sessionId string) (Session, bool) {
+	sesh, err := s.Store.GetSession(sessionId)
+	if err != nil {
+		return Session{}, false
+	}
+	return sesh, true
 }
