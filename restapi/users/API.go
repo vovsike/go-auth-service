@@ -11,4 +11,5 @@ type UserStore interface {
 	FindByUsername(username string) (*User, bool)
 	GetById(id int) (User, error)
 	Ping()
+	Add(username string, password string) User
 }

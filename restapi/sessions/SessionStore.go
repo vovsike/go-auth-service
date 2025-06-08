@@ -7,9 +7,15 @@ import (
 	"time"
 )
 
+type Session struct {
+	sessionId string
+	userId    int
+	expires   time.Time
+}
+
 type SessionStore interface {
-	CreateNewSession(userId int, sessionId string)
-	GetSession(sessionId string)
+	CreateNewSession(session Session) Session
+	GetSession(sessionId string) Session
 	DeleteSession(sessionId string)
 }
 
@@ -23,19 +29,21 @@ func NewSessionStoreDB(conn *pgx.Conn) *SessionStoreDB {
 	}
 }
 
-func (s *SessionStoreDB) CreateNewSession(userId int, sessionId string) {
-	_, err := s.db.Exec(context.Background(), "INSERT INTO sessions (session_id, user_id, expires) VALUES ($1, $2, $3)", sessionId, userId, time.Now())
+func (ss *SessionStoreDB) CreateNewSession(s Session) Session {
+	_, err := ss.db.Exec(context.Background(), "INSERT INTO sessions (session_id, user_id, expires) VALUES ($1, $2, $3)", s.sessionId, s.userId, s.expires)
 	if err != nil {
 		fmt.Println(err)
+		return Session{}
 	}
+	return s
 }
 
-func (s *SessionStoreDB) GetSession(sessionId string) {
+func (ss *SessionStoreDB) GetSession(sessionId string) Session {
 	//TODO implement me
 	panic("implement me")
 }
 
-func (s *SessionStoreDB) DeleteSession(sessionId string) {
+func (ss *SessionStoreDB) DeleteSession(sessionId string) {
 	//TODO implement me
 	panic("implement me")
 }

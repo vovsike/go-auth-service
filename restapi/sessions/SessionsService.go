@@ -1,6 +1,9 @@
 package sessions
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+	"time"
+)
 
 type SessionService struct {
 	Store SessionStore
@@ -12,7 +15,12 @@ func NewSessionService(store SessionStore) *SessionService {
 	}
 }
 
-func (s *SessionService) CreateNewSession(userId int) {
+func (s *SessionService) Authenticate(userId int) Session {
 	sid, _ := uuid.NewRandom()
-	s.Store.CreateNewSession(userId, sid.String())
+	session := Session{
+		sessionId: sid.String(),
+		userId:    userId,
+		expires:   time.Now().Add(time.Hour * 24),
+	}
+	return s.Store.CreateNewSession(session)
 }
