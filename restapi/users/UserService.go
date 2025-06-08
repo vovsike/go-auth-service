@@ -2,6 +2,7 @@ package users
 
 import (
 	"errors"
+	"fmt"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -11,10 +12,6 @@ type UserService struct {
 
 func NewUserService(store UserStore) *UserService {
 	return &UserService{Store: store}
-}
-
-func (s *UserService) GetAllUsers() []User {
-	return s.Store.GetAll()
 }
 
 func (s *UserService) CheckUserPassword(un string, passwordToCheck string) (bool, error) {
@@ -29,10 +26,10 @@ func (s *UserService) CheckUserPassword(un string, passwordToCheck string) (bool
 	return true, nil
 }
 
-func (s *UserService) AddUser(username string, password string) (User, error) {
-	u := s.Store.Add(username, password)
-	if u == (User{}) {
-		return User{}, errors.New("user could not be added")
+func (s *UserService) CreateNewUser(username string, password string) (User, error) {
+	u, err := s.Store.Add(username, password)
+	if err != nil {
+		return User{}, fmt.Errorf("failed to create a new user: %w", err)
 	}
 	return u, nil
 }

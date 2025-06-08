@@ -2,10 +2,10 @@ package sessions
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"restapi/jwtInternal"
 	"restapi/users"
+	"restapi/utils"
 )
 
 type Controller struct {
@@ -28,24 +28,16 @@ func (c *Controller) Login(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&up)
 	if err != nil {
-		w.WriteHeader(http.StatusBadRequest)
-		return
+		utils.WriteErrorResponse(w, http.StatusBadRequest, "Failed to decode request body")
 	}
 
 	_, err = c.UsersService.CheckUserPassword(up.Username, up.Password)
 	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
+		utils.WriteErrorResponse(w, http.StatusUnauthorized, "Invalid username or password")
 	}
 	un, _ := c.UsersService.Store.FindByUsername(up.Username)
 	s := c.Service.Authenticate(un.ID)
-	w.WriteHeader(http.StatusCreated)
-	err = json.NewEncoder(w).Encode(s)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		fmt.Println(err)
-		return
-	}
+	utils.RespondJSON(w, s, http.StatusCreated)
 }
 
 func (c *Controller) GetToken(w http.ResponseWriter, r *http.Request) {
@@ -57,19 +49,16 @@ func (c *Controller) GetToken(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&s)
 	if err != nil {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
+		utils.WriteErrorResponse(w, http.StatusBadRequest, "Failed to decode request body")
 	}
 	sesh, ok := c.Service.VerifySession(s.SessionId)
 	if !ok {
-		w.WriteHeader(http.StatusUnauthorized)
-		return
+		utils.WriteErrorResponse(w, http.StatusUnauthorized, "Invalid session")
 	}
 
 	jwtToken, err := c.JwtService.GenerateToken(sesh.UserID)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		utils.WriteErrorResponse(w, http.StatusInternalServerError, "Internal server error")
 	}
 
 	type jwtWrapper struct {
@@ -77,11 +66,6 @@ func (c *Controller) GetToken(w http.ResponseWriter, r *http.Request) {
 	}
 	jwtWrapped := jwtWrapper{Token: jwtToken}
 
-	w.WriteHeader(http.StatusOK)
-	err = json.NewEncoder(w).Encode(jwtWrapped)
-	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
-	}
+	utils.RespondJSON(w, jwtWrapped, http.StatusOK)
 
 }

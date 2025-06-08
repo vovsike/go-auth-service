@@ -3,6 +3,7 @@ package users
 import (
 	"encoding/json"
 	"net/http"
+	"restapi/utils"
 )
 
 type Controller struct {
@@ -13,12 +14,6 @@ func NewController(service *UserService) *Controller {
 	return &Controller{Service: service}
 }
 
-func (c *Controller) GetAllUsers(w http.ResponseWriter, r *http.Request) {
-	users := c.Service.GetAllUsers()
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(users)
-}
-
 func (c *Controller) CreateUser(w http.ResponseWriter, r *http.Request) {
 	type upWrapper struct {
 		Username string `json:"username"`
@@ -26,13 +21,19 @@ func (c *Controller) CreateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var up upWrapper
-	_ = json.NewDecoder(r.Body).Decode(&up)
-
-	createddUser, err := c.Service.AddUser(up.Username, up.Password)
+	err := json.NewDecoder(r.Body).Decode(&up)
 	if err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		return
+		utils.WriteErrorResponse(w, http.StatusBadRequest, "Failed to decode request body")
 	}
-	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(createddUser)
+
+	if up.Username == "" || up.Password == "" {
+		utils.WriteErrorResponse(w, http.StatusBadRequest, "Username or password is empty")
+	}
+
+	createdUser, err := c.Service.CreateNewUser(up.Username, up.Password)
+	if err != nil {
+		utils.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to create user")
+	}
+
+	utils.RespondJSON(w, createdUser, http.StatusCreated)
 }
