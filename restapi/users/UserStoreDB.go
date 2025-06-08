@@ -3,21 +3,21 @@ package users
 import (
 	"context"
 	"fmt"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
 	"os"
 )
 
 type UserStoreDB struct {
-	db *pgx.Conn
+	db *pgxpool.Pool
 }
 
-func NewUserStoreDB(conn *pgx.Conn) *UserStoreDB {
-	return &UserStoreDB{db: conn}
+func NewUserStoreDB(pool *pgxpool.Pool) *UserStoreDB {
+	return &UserStoreDB{db: pool}
 }
 
 func (u *UserStoreDB) Close() {
-	_ = u.db.Close(context.Background())
+	_ = u.db.Close
 }
 
 func (u *UserStoreDB) Ping() {

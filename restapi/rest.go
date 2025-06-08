@@ -1,8 +1,6 @@
 package main
 
 import (
-	"context"
-	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
 	"log"
 	"net/http"
@@ -20,14 +18,17 @@ func main() {
 	}
 
 	// Init DBs
-	dbConnection := db.CreateNewConnection()
+	dbpool, err := db.CreateConnectionPool()
+	if err != nil {
+		log.Fatal("Error creating DB connection", err)
+	}
 
 	// Init MUX
 	mux := http.NewServeMux()
 
 	// Init stores
-	uStore := users.NewUserStoreDB(dbConnection)
-	sStore := sessions.NewSessionStoreDB(dbConnection)
+	uStore := users.NewUserStoreDB(dbpool)
+	sStore := sessions.NewSessionStoreDB(dbpool)
 
 	// Init services
 	uService := users.NewUserService(uStore)
@@ -38,9 +39,7 @@ func main() {
 	usersController := users.NewController(uService)
 	sessionsController := sessions.NewController(sService, uService, jwtService)
 
-	defer func(dbConnection *pgx.Conn, ctx context.Context) {
-		_ = dbConnection.Close(ctx)
-	}(dbConnection, context.Background())
+	defer dbpool.Close()
 
 	// Register handlers
 	mux.HandleFunc("GET /users", usersController.GetAllUsers)

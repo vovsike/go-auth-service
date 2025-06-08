@@ -3,15 +3,18 @@ package db
 import (
 	"context"
 	"fmt"
-	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"os"
 )
 
-func CreateNewConnection() *pgx.Conn {
-	conn, err := pgx.Connect(context.Background(), "postgres://postgres:password@localhost:5432/postgres")
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+func CreateConnectionPool() (*pgxpool.Pool, error) {
+	connString := os.Getenv("DATABASE_URL")
+	if connString == "" {
+		connString = "postgres://postgres:password@localhost:5432/postgres"
 	}
-	return conn
+	conn, err := pgxpool.New(context.Background(), "postgres://postgres:password@localhost:5432/postgres")
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to database: %v", err)
+	}
+	return conn, nil
 }
