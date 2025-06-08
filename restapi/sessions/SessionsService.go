@@ -18,9 +18,9 @@ func NewSessionService(store SessionStore) *SessionService {
 func (s *SessionService) Authenticate(userId int) Session {
 	sid, _ := uuid.NewRandom()
 	session := Session{
-		SessionId: sid.String(),
-		UserId:    userId,
-		Expires:   time.Now().Add(time.Hour * 24),
+		ID:        sid.String(),
+		UserID:    userId,
+		ExpiresAt: time.Now().Add(time.Hour * 24),
 	}
 	return s.Store.CreateNewSession(session)
 }
