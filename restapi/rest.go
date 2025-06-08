@@ -42,7 +42,6 @@ func main() {
 	defer dbpool.Close()
 
 	// Register handlers
-	mux.HandleFunc("GET /users", usersController.GetAllUsers)
 	mux.HandleFunc("POST /users", usersController.CreateUser)
 	mux.HandleFunc("POST /session", sessionsController.Login)
 	mux.HandleFunc("POST /session/token", sessionsController.GetToken)
