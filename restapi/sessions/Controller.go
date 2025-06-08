@@ -66,7 +66,7 @@ func (c *Controller) GetToken(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	jwtToken, err := c.JwtService.GenerateToken(sesh.UserId)
+	jwtToken, err := c.JwtService.GenerateToken(sesh.UserID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
@@ -78,6 +78,10 @@ func (c *Controller) GetToken(w http.ResponseWriter, r *http.Request) {
 	jwtWrapped := jwtWrapper{Token: jwtToken}
 
 	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(jwtWrapped)
+	err = json.NewEncoder(w).Encode(jwtWrapped)
+	if err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
 
 }
