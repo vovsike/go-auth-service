@@ -12,7 +12,7 @@ func CreateConnectionPool() (*pgxpool.Pool, error) {
 	if connString == "" {
 		connString = "postgres://postgres:password@localhost:5432/postgres"
 	}
-	conn, err := pgxpool.New(context.Background(), "postgres://postgres:password@localhost:5432/postgres")
+	conn, err := pgxpool.New(context.Background(), connString)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to database: %v", err)
 	}
