@@ -38,7 +38,7 @@ func (c *Controller) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	un, _ := c.UsersService.Store.FindByUsername(up.Username)
-	s := c.Service.Authenticate(un.Id)
+	s := c.Service.Authenticate(un.ID)
 	w.WriteHeader(http.StatusCreated)
 	err = json.NewEncoder(w).Encode(s)
 	if err != nil {
