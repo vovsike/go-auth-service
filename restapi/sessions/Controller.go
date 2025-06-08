@@ -29,11 +29,13 @@ func (c *Controller) Login(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&up)
 	if err != nil {
 		utils.WriteErrorResponse(w, http.StatusBadRequest, "Failed to decode request body")
+		return
 	}
 
 	_, err = c.UsersService.CheckUserPassword(up.Username, up.Password)
 	if err != nil {
 		utils.WriteErrorResponse(w, http.StatusUnauthorized, "Invalid username or password")
+		return
 	}
 	un, _ := c.UsersService.Store.FindByUsername(up.Username)
 	s := c.Service.Authenticate(un.ID)
@@ -50,15 +52,18 @@ func (c *Controller) GetToken(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&s)
 	if err != nil {
 		utils.WriteErrorResponse(w, http.StatusBadRequest, "Failed to decode request body")
+		return
 	}
 	sesh, ok := c.Service.VerifySession(s.SessionId)
 	if !ok {
 		utils.WriteErrorResponse(w, http.StatusUnauthorized, "Invalid session")
+		return
 	}
 
 	jwtToken, err := c.JwtService.GenerateToken(sesh.UserID)
 	if err != nil {
 		utils.WriteErrorResponse(w, http.StatusInternalServerError, "Internal server error")
+		return
 	}
 
 	type jwtWrapper struct {

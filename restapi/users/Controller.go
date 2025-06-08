@@ -24,15 +24,18 @@ func (c *Controller) CreateUser(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&up)
 	if err != nil {
 		utils.WriteErrorResponse(w, http.StatusBadRequest, "Failed to decode request body")
+		return
 	}
 
 	if up.Username == "" || up.Password == "" {
 		utils.WriteErrorResponse(w, http.StatusBadRequest, "Username or password is empty")
+		return
 	}
 
 	createdUser, err := c.Service.CreateNewUser(up.Username, up.Password)
 	if err != nil {
 		utils.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to create user")
+		return
 	}
 
 	utils.RespondJSON(w, createdUser, http.StatusCreated)
