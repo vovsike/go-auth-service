@@ -4,6 +4,7 @@ import (
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"github.com/lestrrat-go/jwx/v3/jwa"
 	"github.com/lestrrat-go/jwx/v3/jwt"
@@ -50,6 +51,27 @@ func (s *ServiceImpl) ValidateToken(t []byte) (bool, error) {
 		return false, fmt.Errorf("failed to validate token: %v", err)
 	}
 	return true, nil
+}
+
+func (s *ServiceImpl) ExtractUserID(token []byte) (int, error) {
+	pubKey, err := loadRSAPubKey(os.Getenv("PUBLIC_KEY"))
+	if err != nil {
+		return 0, fmt.Errorf("loading public key: %w", err)
+	}
+
+	parsed, err := jwt.Parse(token, jwt.WithKey(jwa.RS256(), pubKey))
+	if err != nil {
+		return 0, fmt.Errorf("parsing token: %w", err)
+	}
+
+	var userID int
+
+	err = parsed.Get("sub", &userID)
+	if err != nil {
+		return 0, errors.New("subject claim not found in token")
+	}
+
+	return userID, nil
 }
 
 func loadRSAPrivKey(privKey string) (*rsa.PrivateKey, error) {
