@@ -15,6 +15,7 @@ func NewController(service *UserService) *Controller {
 }
 
 func (c *Controller) CreateUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	type upWrapper struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -32,7 +33,7 @@ func (c *Controller) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	createdUser, err := c.Service.CreateNewUser(up.Username, up.Password)
+	createdUser, err := c.Service.CreateNewUser(ctx, up.Username, up.Password)
 	if err != nil {
 		utils.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to create user")
 		return

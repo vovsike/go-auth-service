@@ -19,6 +19,7 @@ func NewController(service *SessionService, usersService *users.UserService, jwt
 }
 
 func (c *Controller) Login(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	type upWrapper struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -32,17 +33,18 @@ func (c *Controller) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = c.UsersService.CheckUserPassword(up.Username, up.Password)
+	_, err = c.UsersService.CheckUserPassword(ctx, up.Username, up.Password)
 	if err != nil {
 		utils.WriteErrorResponse(w, http.StatusUnauthorized, "Invalid username or password")
 		return
 	}
-	un, _ := c.UsersService.Store.FindByUsername(up.Username)
-	s := c.Service.Authenticate(un.ID)
+	un, _ := c.UsersService.Store.FindByUsername(ctx, up.Username)
+	s := c.Service.Authenticate(ctx, un.ID)
 	utils.RespondJSON(w, s, http.StatusCreated)
 }
 
 func (c *Controller) GetToken(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	type sWrap struct {
 		SessionId string `json:"sessionId"`
 	}
@@ -54,7 +56,7 @@ func (c *Controller) GetToken(w http.ResponseWriter, r *http.Request) {
 		utils.WriteErrorResponse(w, http.StatusBadRequest, "Failed to decode request body")
 		return
 	}
-	sesh, ok := c.Service.VerifySession(s.SessionId)
+	sesh, ok := c.Service.VerifySession(ctx, s.SessionId)
 	if !ok {
 		utils.WriteErrorResponse(w, http.StatusUnauthorized, "Invalid session")
 		return

@@ -7,7 +7,6 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/crypto/bcrypt"
-	"os"
 )
 
 type UserStoreDB struct {
@@ -22,29 +21,19 @@ func (u *UserStoreDB) Close() {
 	_ = u.db.Close
 }
 
-func (u *UserStoreDB) Ping() {
-	var testString string
-	err := u.db.QueryRow(context.Background(), "SELECT 'test'").Scan(&testString)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	fmt.Println(testString)
-}
-
-func (u *UserStoreDB) FindByUsername(username string) (*User, bool) {
+func (u *UserStoreDB) FindByUsername(ctx context.Context, username string) (*User, bool) {
 	user := User{}
-	err := u.db.QueryRow(context.Background(), "SELECT * FROM users WHERE name = $1", username).Scan(&user.ID, &user.Username, &user.Password)
+	err := u.db.QueryRow(ctx, "SELECT * FROM users WHERE name = $1", username).Scan(&user.ID, &user.Username, &user.Password)
 	if err != nil {
 		return nil, false
 	}
 	return &user, true
 }
 
-func (u *UserStoreDB) GetById(id int) (User, error) {
+func (u *UserStoreDB) GetById(ctx context.Context, id int) (User, error) {
 	var user User
 
-	err := u.db.QueryRow(context.Background(),
+	err := u.db.QueryRow(ctx,
 		"SELECT user_id, name, password FROM users WHERE user_id = $1", id).
 		Scan(&user.ID, &user.Username, &user.Password)
 	if err != nil {
@@ -56,12 +45,12 @@ func (u *UserStoreDB) GetById(id int) (User, error) {
 	return user, nil
 }
 
-func (u *UserStoreDB) Add(username string, password string) (User, error) {
+func (u *UserStoreDB) Add(ctx context.Context, username string, password string) (User, error) {
 	if username == "" || password == "" {
 		return User{}, errors.New("username or password is empty")
 	}
 
-	exists, _ := u.FindByUsername(username)
+	exists, _ := u.FindByUsername(ctx, username)
 	if exists != nil {
 		return User{}, fmt.Errorf("user with username %s already exists", username)
 	}
@@ -73,7 +62,7 @@ func (u *UserStoreDB) Add(username string, password string) (User, error) {
 
 	var userID int
 
-	err = u.db.QueryRow(context.Background(),
+	err = u.db.QueryRow(ctx,
 		"INSERT INTO users (user_id ,name, password) VALUES ($1, $2, $3) RETURNING user_id",
 		2, username, hashedPassword).Scan(&userID)
 
