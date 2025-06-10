@@ -8,23 +8,23 @@ import (
 )
 
 type UserService struct {
-	Store UserStore
+	Store Store
 }
 
-func NewUserService(store UserStore) *UserService {
+func NewUserService(store Store) *UserService {
 	return &UserService{Store: store}
 }
 
-func (s *UserService) CheckUserPassword(ctx context.Context, un string, passwordToCheck string) (bool, error) {
-	user, found := s.Store.FindByUsername(ctx, un)
-	if !found {
-		return false, errors.New("user not found")
-	}
-	err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(passwordToCheck))
+func (s *UserService) CheckUserPassword(ctx context.Context, un string, passwordToCheck string) error {
+	user, err := s.Store.FindByUsername(ctx, un)
 	if err != nil {
-		return false, errors.New("password is incorrect")
+		return fmt.Errorf("failed to find user: %w", err)
 	}
-	return true, nil
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(passwordToCheck))
+	if err != nil {
+		return errors.New("password is incorrect")
+	}
+	return nil
 }
 
 func (s *UserService) CreateNewUser(ctx context.Context, username string, password string) (User, error) {

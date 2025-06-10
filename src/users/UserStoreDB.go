@@ -21,13 +21,13 @@ func (u *UserStoreDB) Close() {
 	_ = u.db.Close
 }
 
-func (u *UserStoreDB) FindByUsername(ctx context.Context, username string) (*User, bool) {
+func (u *UserStoreDB) FindByUsername(ctx context.Context, username string) (User, error) {
 	user := User{}
 	err := u.db.QueryRow(ctx, "SELECT * FROM users WHERE name = $1", username).Scan(&user.ID, &user.Username, &user.Password)
 	if err != nil {
-		return nil, false
+		return User{}, fmt.Errorf("failed to find user: %w", err)
 	}
-	return &user, true
+	return user, nil
 }
 
 func (u *UserStoreDB) GetById(ctx context.Context, id int) (User, error) {
@@ -50,8 +50,8 @@ func (u *UserStoreDB) Add(ctx context.Context, username string, password string)
 		return User{}, errors.New("username or password is empty")
 	}
 
-	exists, _ := u.FindByUsername(ctx, username)
-	if exists != nil {
+	_, err := u.FindByUsername(ctx, username)
+	if err != nil {
 		return User{}, fmt.Errorf("user with username %s already exists", username)
 	}
 
