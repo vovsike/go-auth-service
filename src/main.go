@@ -2,9 +2,11 @@ package main
 
 import (
 	"github.com/joho/godotenv"
+	"go.opentelemetry.io/otel"
 	"log"
 	"net/http"
 	"restapi/db"
+	"restapi/internal"
 	"restapi/jwtInternal"
 	"restapi/sessions"
 	"restapi/users"
@@ -13,9 +15,16 @@ import (
 func main() {
 	// Load env
 	err := godotenv.Load()
+
 	if err != nil {
 		log.Fatal("Error loading .env file", err)
 	}
+	tp, err := internal.NewTraceProvider()
+	if err != nil {
+		log.Fatal("Failed to create trace provider", err)
+	}
+
+	otel.SetTracerProvider(tp)
 
 	// Init DBs
 	dbpool, err := db.CreateConnectionPool()

@@ -2,6 +2,7 @@ package sessions
 
 import (
 	"encoding/json"
+	"go.opentelemetry.io/otel"
 	"net/http"
 	"restapi/jwtInternal"
 	"restapi/users"
@@ -20,6 +21,10 @@ func NewController(service *SessionService, usersService *users.UserService, jwt
 
 func (c *Controller) Login(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
+	tp := otel.GetTracerProvider()
+	tracer := tp.Tracer("loginTracer")
+	ctx, span := tracer.Start(ctx, "Login")
+	defer span.End()
 	type upWrapper struct {
 		Username string `json:"username"`
 		Password string `json:"password"`
@@ -33,7 +38,7 @@ func (c *Controller) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = c.UsersService.CheckUserPassword(ctx, up.Username, up.Password)
+	err = c.UsersService.CheckUserPassword(ctx, up.Username, up.Password)
 	if err != nil {
 		utils.WriteErrorResponse(w, http.StatusUnauthorized, "Invalid username or password")
 		return
