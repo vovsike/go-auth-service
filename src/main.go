@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel"
 	"log"
 	"net/http"
@@ -51,12 +52,13 @@ func main() {
 	defer dbpool.Close()
 
 	// Register handlers
+	mux.Handle("GET /metrics", promhttp.Handler())
 	mux.HandleFunc("POST /users", usersController.CreateUser)
 	mux.HandleFunc("POST /session", sessionsController.Login)
 	mux.HandleFunc("POST /session/token", sessionsController.GetToken)
 
 	// Register global middleware
-	handler := Logging(mux)
+	handler := Logging(CountRequests(mux))
 
 	// Start
 	log.Fatal(http.ListenAndServe(":8080", handler))
