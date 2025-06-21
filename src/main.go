@@ -2,15 +2,14 @@ package main
 
 import (
 	"github.com/joho/godotenv"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"go.opentelemetry.io/otel"
 	"log"
 	"net/http"
-	"restapi/db"
-	"restapi/internal"
-	"restapi/jwtInternal"
-	"restapi/sessions"
-	"restapi/users"
+	"restapi/accounts"
+	"restapi/internal/db"
+	"restapi/internal/jwtInternal"
+	"restapi/internal/mq"
+	"restapi/internal/observability"
 )
 
 func main() {
@@ -20,7 +19,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Error loading .env file", err)
 	}
-	tp, err := internal.NewTraceProvider()
+	tp, err := observability.NewTraceProvider()
 	if err != nil {
 		log.Fatal("Failed to create trace provider", err)
 	}
@@ -33,29 +32,33 @@ func main() {
 		log.Fatal("Error creating DB connection", err)
 	}
 
+	//setup mq
+	mqClient, err := mq.NewClient("amqp://guest:guest@localhost:5672/")
+	if err != nil {
+		log.Fatal("Failed to create MQ client:", err)
+	}
+	defer mqClient.Close()
+
+	// Declare the exchange
+	err = mqClient.DeclareExchange("accounts", "direct", false, false, false, false)
+	if err != nil {
+		log.Fatal("Failed to declare exchange:", err)
+	}
+
 	// Init MUX
 	mux := http.NewServeMux()
 
-	// Init stores
-	uStore := users.NewUserStoreDB(dbpool)
-	sStore := sessions.NewSessionStoreDB(dbpool)
-
 	// Init services
-	uService := users.NewUserService(uStore)
-	sService := sessions.NewSessionService(sStore)
+	aService := accounts.NewServiceDB(dbpool, mqClient)
 	jwtService := jwtInternal.NewService()
 
 	// Init controllers
-	usersController := users.NewController(uService)
-	sessionsController := sessions.NewController(sService, uService, jwtService)
+	accountController := accounts.NewController(aService, jwtService)
 
 	defer dbpool.Close()
 
 	// Register handlers
-	mux.Handle("GET /metrics", promhttp.Handler())
-	mux.HandleFunc("POST /users", usersController.CreateUser)
-	mux.HandleFunc("POST /session", sessionsController.Login)
-	mux.HandleFunc("POST /session/token", sessionsController.GetToken)
+	mux.HandleFunc("POST /account", accountController.CreateNewAccount)
 
 	// Register global middleware
 	handler := Logging(CountRequests(mux))
