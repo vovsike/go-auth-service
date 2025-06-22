@@ -7,6 +7,7 @@ import (
 
 type Account struct {
 	ID       uuid.UUID
+	UserID   uuid.UUID
 	Username string
 	Password string
 }
