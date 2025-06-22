@@ -49,7 +49,10 @@ func main() {
 	mux := http.NewServeMux()
 
 	// Init services
-	aService := accounts.NewServiceDB(dbpool, mqClient)
+	aService, err := accounts.NewServiceDB(dbpool, mqClient)
+	if err != nil {
+		log.Fatal("Failed to create service:", err)
+	}
 	jwtService := jwtInternal.NewService()
 
 	// Init controllers
