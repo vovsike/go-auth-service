@@ -89,3 +89,26 @@ func (u *User) CheckPassword(password string) bool {
 func (u *User) Activate() {
 	u.Activated = true
 }
+
+type CreationDTO struct {
+	Name     string `json:"name"`
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type DTO struct {
+	ID        uuid.UUID `json:"id"`
+	Name      string    `json:"name"`
+	Email     string    `json:"email"`
+	Activated bool      `json:"activated"`
+	Joined    time.Time `json:"joined"`
+}
+
+type PasswordWrapper struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+type TokenWrapper struct {
+	Token string `json:"token"`
+}
