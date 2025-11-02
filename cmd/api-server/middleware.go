@@ -1,11 +1,21 @@
 package main
 
-import "net/http"
+import (
+	"awesomeProject/internal/apperror"
+	"errors"
+	"net/http"
+)
 
 func ErrorHandler(fn func(w http.ResponseWriter, r *http.Request) error) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if err := fn(w, r); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+			var httpErr *apperror.HTTPError
+			if errors.As(err, &httpErr) {
+				http.Error(w, httpErr.Error(), httpErr.StatusCode)
+				return
+			}
+			// Default to 500 for unknown errors
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		}
 	}
 }

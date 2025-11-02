@@ -1,6 +1,7 @@
 package user
 
 import (
+	"awesomeProject/internal/apperror"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -21,34 +22,34 @@ func TestHandler_Authenticate(t *testing.T) {
 	h := &Handler{Service: service}
 
 	tests := []struct {
-		name     string
-		body     PasswordWrapper
-		wantCode int
+		name      string
+		body      PasswordWrapper
+		wantError *apperror.HTTPError
 	}{
 		{
-			name:     "valid user",
-			body:     PasswordWrapper{Password: "password", Email: "valid@email.test"},
-			wantCode: http.StatusOK,
+			name:      "valid user",
+			body:      PasswordWrapper{Password: "password", Email: "valid@email.test"},
+			wantError: nil,
 		},
 		{
-			name:     "wrong password",
-			body:     PasswordWrapper{Password: "wrong", Email: "valid@email.test"},
-			wantCode: http.StatusUnauthorized,
+			name:      "wrong password",
+			body:      PasswordWrapper{Password: "wrong", Email: "valid@email.test"},
+			wantError: &apperror.HTTPError{StatusCode: http.StatusUnauthorized},
 		},
 		{
-			name:     "no user found",
-			body:     PasswordWrapper{Password: "password", Email: "invalid@email.test"},
-			wantCode: http.StatusUnauthorized,
+			name:      "no user found",
+			body:      PasswordWrapper{Password: "password", Email: "invalid@email.test"},
+			wantError: &apperror.HTTPError{StatusCode: http.StatusUnauthorized},
 		},
 		{
-			name:     "empty password",
-			body:     PasswordWrapper{Password: "", Email: "valid@email.test"},
-			wantCode: http.StatusBadRequest,
+			name:      "empty password",
+			body:      PasswordWrapper{Password: "", Email: "valid@email.test"},
+			wantError: &apperror.HTTPError{StatusCode: http.StatusBadRequest},
 		},
 		{
-			name:     "empty email",
-			body:     PasswordWrapper{Password: "password", Email: ""},
-			wantCode: http.StatusBadRequest,
+			name:      "empty email",
+			body:      PasswordWrapper{Password: "password", Email: ""},
+			wantError: &apperror.HTTPError{StatusCode: http.StatusBadRequest},
 		},
 	}
 	for _, tt := range tests {
@@ -60,8 +61,16 @@ func TestHandler_Authenticate(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/authenticate", bytes.NewReader(body))
 			w := httptest.NewRecorder()
 
-			assert.NoError(t, h.Authenticate(w, req))
-			assert.Equal(t, tt.wantCode, w.Code)
+			err = h.Authenticate(w, req)
+
+			if tt.wantError == nil {
+				assert.NoError(t, err)
+			} else {
+				assert.Error(t, err)
+				var httpError *apperror.HTTPError
+				assert.ErrorAs(t, err, &httpError)
+				assert.Equal(t, tt.wantError.StatusCode, httpError.StatusCode)
+			}
 		})
 	}
 }
@@ -79,9 +88,9 @@ func TestHandler_CreateUser(t *testing.T) {
 	h := &Handler{Service: service}
 
 	tests := []struct {
-		name     string
-		body     CreationDTO
-		wantCode int
+		name      string
+		body      CreationDTO
+		wantError *apperror.HTTPError
 	}{
 		{
 			name: "valid user",
@@ -90,7 +99,7 @@ func TestHandler_CreateUser(t *testing.T) {
 				Email:    validEmail,
 				Password: validPassword,
 			},
-			wantCode: http.StatusCreated,
+			wantError: nil,
 		},
 		{
 			name: "invalid password",
@@ -99,7 +108,7 @@ func TestHandler_CreateUser(t *testing.T) {
 				Email:    validEmail,
 				Password: invalidPassword,
 			},
-			wantCode: http.StatusBadRequest,
+			wantError: &apperror.HTTPError{StatusCode: http.StatusBadRequest},
 		},
 		{
 			name: "user already exists",
@@ -108,7 +117,7 @@ func TestHandler_CreateUser(t *testing.T) {
 				Email:    existingEmail,
 				Password: validPassword,
 			},
-			wantCode: http.StatusBadRequest,
+			wantError: &apperror.HTTPError{StatusCode: http.StatusBadRequest},
 		},
 		{
 			name: "empty password",
@@ -117,7 +126,7 @@ func TestHandler_CreateUser(t *testing.T) {
 				Email:    validEmail,
 				Password: "",
 			},
-			wantCode: http.StatusBadRequest,
+			wantError: &apperror.HTTPError{StatusCode: http.StatusBadRequest},
 		},
 		{
 			name: "empty email",
@@ -126,7 +135,7 @@ func TestHandler_CreateUser(t *testing.T) {
 				Email:    "",
 				Password: validPassword,
 			},
-			wantCode: http.StatusBadRequest,
+			wantError: &apperror.HTTPError{StatusCode: http.StatusBadRequest},
 		},
 	}
 	for _, tt := range tests {
@@ -138,20 +147,23 @@ func TestHandler_CreateUser(t *testing.T) {
 			req := httptest.NewRequest(http.MethodPost, "/user", bytes.NewReader(body))
 			w := httptest.NewRecorder()
 
-			assert.NoError(t, h.CreateUser(w, req))
-			assert.Equal(t, tt.wantCode, w.Code)
-
-			if tt.wantCode != http.StatusCreated {
-				return
+			err = h.CreateUser(w, req)
+			if tt.wantError == nil {
+				assert.NoError(t, err)
+				var dto DTO
+				err = json.NewDecoder(w.Body).Decode(&dto)
+				if err != nil {
+					t.Fatal(err)
+				}
+				assert.NotEmpty(t, dto.ID)
+				assert.Equal(t, dto.Name, tt.body.Name)
+				assert.Equal(t, dto.Email, tt.body.Email)
+			} else {
+				assert.Error(t, err)
+				var httpError *apperror.HTTPError
+				assert.ErrorAs(t, err, &httpError)
+				assert.Equal(t, tt.wantError.StatusCode, httpError.StatusCode)
 			}
-			var dto DTO
-			err = json.NewDecoder(w.Body).Decode(&dto)
-			if err != nil {
-				t.Fatal(err)
-			}
-			assert.NotEmpty(t, dto.ID)
-			assert.Equal(t, dto.Name, tt.body.Name)
-			assert.Equal(t, dto.Email, tt.body.Email)
 		})
 	}
 }
@@ -166,29 +178,29 @@ func TestHandler_GetUser(t *testing.T) {
 	h := &Handler{Service: service}
 
 	tests := []struct {
-		name     string
-		id       string
-		wantCode int
+		name      string
+		id        string
+		wantError *apperror.HTTPError
 	}{
 		{
-			name:     "valid id",
-			id:       validID.String(),
-			wantCode: http.StatusOK,
+			name:      "valid id",
+			id:        validID.String(),
+			wantError: nil,
 		},
 		{
-			name:     "invalid id",
-			id:       invalidID.String(),
-			wantCode: http.StatusNotFound,
+			name:      "invalid id",
+			id:        invalidID.String(),
+			wantError: &apperror.HTTPError{StatusCode: http.StatusNotFound},
 		},
 		{
-			name:     "empty id",
-			id:       emptyID,
-			wantCode: http.StatusBadRequest,
+			name:      "empty id",
+			id:        emptyID,
+			wantError: &apperror.HTTPError{StatusCode: http.StatusBadRequest},
 		},
 		{
-			name:     "id with spaces",
-			id:       spaceID,
-			wantCode: http.StatusBadRequest,
+			name:      "id with spaces",
+			id:        spaceID,
+			wantError: &apperror.HTTPError{StatusCode: http.StatusBadRequest},
 		},
 	}
 	for _, tt := range tests {
@@ -204,19 +216,22 @@ func TestHandler_GetUser(t *testing.T) {
 			}
 			req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, chiCtx))
 
-			assert.NoError(t, h.GetUser(w, req), "got error")
-			assert.Equal(t, tt.wantCode, w.Code)
-
-			if tt.wantCode != http.StatusOK {
-				return
+			err := h.GetUser(w, req)
+			if tt.wantError == nil {
+				assert.NoError(t, err, "got error")
+				var dto DTO
+				err := json.NewDecoder(w.Body).Decode(&dto)
+				if err != nil {
+					t.Fatal(err)
+				}
+				assert.NotEmpty(t, dto.ID)
+				assert.Equal(t, dto.ID, uuid.MustParse(tt.id))
+			} else {
+				assert.Error(t, err)
+				var httpError *apperror.HTTPError
+				assert.ErrorAs(t, err, &httpError)
+				assert.Equal(t, tt.wantError.StatusCode, httpError.StatusCode)
 			}
-			var dto DTO
-			err := json.NewDecoder(w.Body).Decode(&dto)
-			if err != nil {
-				t.Fatal(err)
-			}
-			assert.NotEmpty(t, dto.ID)
-			assert.Equal(t, dto.ID, uuid.MustParse(tt.id))
 		})
 	}
 }
@@ -241,49 +256,49 @@ func TestHandler_SearchUser(t *testing.T) {
 	h := &Handler{Service: service}
 
 	tests := []struct {
-		name     string
-		body     SearchDTO
-		wantCode int
+		name      string
+		body      SearchDTO
+		wantError *apperror.HTTPError
 	}{
 		{
-			name:     "valid search",
-			body:     SearchDTO{Name: validName, Email: validEmail},
-			wantCode: http.StatusOK,
+			name:      "valid search",
+			body:      SearchDTO{Name: validName, Email: validEmail},
+			wantError: nil,
 		},
 		{
-			name:     "invalid name",
-			body:     SearchDTO{Name: invalidName},
-			wantCode: http.StatusNotFound,
+			name:      "invalid name",
+			body:      SearchDTO{Name: invalidName},
+			wantError: &apperror.HTTPError{StatusCode: http.StatusNotFound},
 		},
 		{
-			name:     "invalid email",
-			body:     SearchDTO{Email: invalidEmail},
-			wantCode: http.StatusNotFound,
+			name:      "invalid email",
+			body:      SearchDTO{Email: invalidEmail},
+			wantError: &apperror.HTTPError{StatusCode: http.StatusNotFound},
 		},
 		{
-			name:     "empty name",
-			body:     SearchDTO{Name: emptyName},
-			wantCode: http.StatusBadRequest,
+			name:      "empty name",
+			body:      SearchDTO{Name: emptyName},
+			wantError: &apperror.HTTPError{StatusCode: http.StatusBadRequest},
 		},
 		{
-			name:     "empty email",
-			body:     SearchDTO{Email: emptyEmail},
-			wantCode: http.StatusBadRequest,
+			name:      "empty email",
+			body:      SearchDTO{Email: emptyEmail},
+			wantError: &apperror.HTTPError{StatusCode: http.StatusBadRequest},
 		},
 		{
-			name:     "name with spaces",
-			body:     SearchDTO{Name: spaceName},
-			wantCode: http.StatusNotFound,
+			name:      "name with spaces",
+			body:      SearchDTO{Name: spaceName},
+			wantError: &apperror.HTTPError{StatusCode: http.StatusNotFound},
 		},
 		{
-			name:     "email with spaces",
-			body:     SearchDTO{Email: spaceEmail},
-			wantCode: http.StatusNotFound,
+			name:      "email with spaces",
+			body:      SearchDTO{Email: spaceEmail},
+			wantError: &apperror.HTTPError{StatusCode: http.StatusNotFound},
 		},
 		{
-			name:     "badly formated email",
-			body:     SearchDTO{Email: badlyFormatedEmail},
-			wantCode: http.StatusNotFound,
+			name:      "badly formated email",
+			body:      SearchDTO{Email: badlyFormatedEmail},
+			wantError: &apperror.HTTPError{StatusCode: http.StatusNotFound},
 		},
 	}
 	for _, tt := range tests {
@@ -292,21 +307,24 @@ func TestHandler_SearchUser(t *testing.T) {
 			req.URL.RawQuery = "name=" + tt.body.Name + "&email=" + tt.body.Email
 			w := httptest.NewRecorder()
 
-			assert.NoError(t, h.SearchUser(w, req), "got error")
-			assert.Equal(t, tt.wantCode, w.Code)
-
-			if tt.wantCode != http.StatusOK {
-				return
-			}
-			var dto []DTO
-			err := json.NewDecoder(w.Body).Decode(&dto)
-			if err != nil {
-				t.Fatal(err)
-			}
-			for _, d := range dto {
-				assert.NotEmpty(t, d.ID)
-				assert.Equal(t, d.Name, tt.body.Name)
-				assert.Equal(t, d.Email, tt.body.Email)
+			err := h.SearchUser(w, req)
+			if tt.wantError == nil {
+				assert.NoError(t, err, "got error")
+				var dto []DTO
+				err := json.NewDecoder(w.Body).Decode(&dto)
+				if err != nil {
+					t.Fatal(err)
+				}
+				for _, d := range dto {
+					assert.NotEmpty(t, d.ID)
+					assert.Equal(t, d.Name, tt.body.Name)
+					assert.Equal(t, d.Email, tt.body.Email)
+				}
+			} else {
+				assert.Error(t, err)
+				var httpError *apperror.HTTPError
+				assert.ErrorAs(t, err, &httpError)
+				assert.Equal(t, tt.wantError.StatusCode, httpError.StatusCode)
 			}
 		})
 	}
