@@ -4,6 +4,7 @@ import (
 	"awesomeProject/internal/apperror"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -12,11 +13,13 @@ import (
 
 type Handler struct {
 	Service Service
+	Logger  *slog.Logger
 }
 
 func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) error {
 	nu := &CreationDTO{}
 	err := json.NewDecoder(r.Body).Decode(nu)
+	h.Logger.Info("Creating user", "newuser", nu)
 	if err != nil {
 		return err
 	}
@@ -45,7 +48,6 @@ func (h *Handler) GetUser(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return apperror.BadRequest(err)
 	}
-	id = parsedId.String()
 	u, err := h.Service.GetUserByID(parsedId)
 	if err != nil {
 		return apperror.NotFound(err)
@@ -99,10 +101,10 @@ func (h *Handler) Authenticate(w http.ResponseWriter, r *http.Request) error {
 	if err != nil {
 		return err
 	}
-	if pw.Email == "" || pw.Password == "" {
-		return apperror.NewHTTPError(errors.New("email and password must be provided"), http.StatusBadRequest)
+	if pw.Identifier == "" || pw.Password == "" {
+		return apperror.NewHTTPError(errors.New("identifier and password must be provided"), http.StatusBadRequest)
 	}
-	token, err := h.Service.Authenticate(pw.Email, pw.Password)
+	token, err := h.Service.Authenticate(pw.Identifier, pw.Password)
 	if err != nil {
 		return apperror.Unauthorized(err)
 	}

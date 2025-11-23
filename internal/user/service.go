@@ -1,8 +1,11 @@
 package user
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -27,22 +30,54 @@ func NewInMemoryUserService(users Store) *InMemoryService {
 	}
 }
 
-func (us *InMemoryService) Authenticate(email, password string) (string, error) {
-	u, err := us.users.GetByEmail(email)
+type jwtCustomClaims struct {
+	Roles []string `json:"roles"`
+	jwt.RegisteredClaims
+}
+
+func (us *InMemoryService) Authenticate(identifier, password string) (string, error) {
+	var u *User
+	var err error
+	if isEmail(identifier) {
+		u, err = us.users.GetByEmail(identifier)
+	} else {
+		u, err = us.users.GetByName(identifier)
+	}
 	if err != nil {
-		return "", fmt.Errorf("can,t authnenticate user: %v", err)
+		return "", fmt.Errorf("can't authenticate user: %v", err)
 	}
 	if !u.CheckPassword(password) {
 		return "", fmt.Errorf("invalid password")
 	}
-	t, err := issueSignedToken(u)
+
+	// Try to fetch roles, but don't fail if roles service is unavailable
+	roleNames := make([]string, 0)
+	resp, err := http.Get("http://localhost:4001/users/" + u.ID.String() + "/roles")
+	if err == nil {
+		defer resp.Body.Close()
+
+		var roles []struct {
+			ID   uuid.UUID `json:"id"`
+			Name string    `json:"name"`
+		}
+
+		err = json.NewDecoder(resp.Body).Decode(&roles)
+		if err == nil {
+			roleNames = make([]string, 0, len(roles))
+			for _, role := range roles {
+				roleNames = append(roleNames, role.Name)
+			}
+		}
+	}
+
+	t, err := issueSignedToken(u, roleNames)
 	if err != nil {
 		return "", err
 	}
 	return t, nil
 }
 
-func issueSignedToken(user *User) (string, error) {
+func issueSignedToken(user *User, roles []string) (string, error) {
 	secret, ok := os.LookupEnv("SIGN_KEY")
 	if !ok {
 		return "", fmt.Errorf("SIGN_KEY not set")
@@ -50,18 +85,17 @@ func issueSignedToken(user *User) (string, error) {
 	if user == nil {
 		return "", fmt.Errorf("user is nil")
 	}
-	t := jwt.NewWithClaims(jwt.SigningMethodHS256,
-		jwt.RegisteredClaims{
+	claims := jwtCustomClaims{
+		Roles: roles,
+		RegisteredClaims: jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * 24)),
 			Issuer:    "auth-service",
 			Subject:   user.ID.String(),
-		})
-
-	s, err := t.SignedString([]byte(secret))
-	if err != nil {
-		return "", err
+		},
 	}
-	return s, nil
+	t := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return t.SignedString([]byte(secret))
 }
 
 func (us *InMemoryService) GetUserByName(name string) (*User, error) {
@@ -102,4 +136,8 @@ func (us *InMemoryService) CreateNewUser(name, email, password string) (*User, e
 		return nil, fmt.Errorf("failed to createa a new user: %v", err)
 	}
 	return user, nil
+}
+
+func isEmail(identifier string) bool {
+	return identifier != "" && strings.Contains(identifier, "@")
 }

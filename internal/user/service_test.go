@@ -664,7 +664,7 @@ func Test_issueSignedToken(t *testing.T) {
 			if tt.setEnv {
 				t.Setenv("SIGN_KEY", "not empty")
 			}
-			got, err := issueSignedToken(tt.args.user)
+			got, err := issueSignedToken(tt.args.user, []string{})
 			if (err != nil) != tt.wantErr {
 				t.Errorf("issueSignedToken() error = %v, wantErr %v", err, tt.wantErr)
 			}

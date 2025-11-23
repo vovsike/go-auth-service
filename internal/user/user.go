@@ -105,8 +105,8 @@ type DTO struct {
 }
 
 type PasswordWrapper struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Identifier string `json:"identifier"`
+	Password   string `json:"password"`
 }
 
 type TokenWrapper struct {
