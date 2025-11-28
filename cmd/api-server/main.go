@@ -14,6 +14,8 @@ import (
 	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/joho/godotenv"
+	openfga "github.com/openfga/go-sdk"
+	openfgaClient "github.com/openfga/go-sdk/client"
 )
 
 func main() {
@@ -28,6 +30,16 @@ func main() {
 		log.Fatalf("Failed to create database pool: %v", err)
 	}
 	defer pool.Close()
+
+	// FGA setup
+	fgaClient, err := openfgaClient.NewSdkClient(&openfgaClient.ClientConfiguration{
+		ApiUrl:  os.Getenv("FGA_API_URL"),
+		StoreId: os.Getenv("FGA_STORE_ID"),
+	})
+
+	if err != nil {
+		log.Fatalf("Failed to create FGA client: %v", err)
+	}
 
 	// Run migrations
 	ctx := context.Background()
